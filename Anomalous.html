@@ -1,0 +1,695 @@
+<!DOCTYPE html><html lang="ko"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>怪異記錄 · 전투 시뮬레이션</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+        --bg-color: #211A14;
+        --panel-bg: #2B2219;
+        --text-base: #E7DAC0;
+        --blood-red: #9C3B32;
+        --blood-dark: #6B2A24;
+        --gold: #C9A45E;
+        --gold-dark: #8C744A;
+        --jade: #5E7C68;
+        --jade-dark: #3A4F41;
+        --border-dark: #3D3223;
+        --border-light: #4A3F2D;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: 'Noto Serif KR', serif;
+        background-color: var(--bg-color);
+        background-image:
+            radial-gradient(ellipse 900px 700px at 50% 38%, rgba(201, 164, 94, 0.10) 0%, transparent 65%),
+            radial-gradient(circle at center, transparent 0%, #150F0A 120%),
+            url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='rgba(201, 164, 94, 0.12)' stroke-width='1'%3E%3Cpath d='M15 0v15h-15M45 0v15h15M15 60v-15h-15M45 60v-15h15M0 15h15v30h-15M60 15h-15v30h15M15 15h30v30h-30z'/%3E%3C/g%3E%3C/svg%3E"),
+            url("data:image/svg+xml,%3Csvg width='220' height='140' viewBox='0 0 220 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='rgba(94, 124, 104, 0.09)' stroke-width='1.4'%3E%3Cpath d='M10 100c8-14 24-14 32 0s24 14 32 0 24-14 32 0M90 60c8-14 24-14 32 0s24 14 32 0 24-14 32 0'/%3E%3C/g%3E%3C/svg%3E");
+        background-position: center, center, center, center 20%;
+        background-repeat: no-repeat, no-repeat, repeat, repeat;
+        color: var(--text-base);
+        display: flex; justify-content: center; align-items: center;
+        height: 100vh; overflow: hidden;
+    }
+
+    .bg-decoration {
+        position: fixed; top: 0; left: 5%; height: 100vh; writing-mode: vertical-rl; text-orientation: upright;
+        font-size: 8rem; color: rgba(201, 188, 159, 0.035); font-weight: 900; z-index: 0; pointer-events: none; letter-spacing: 30px;
+    }
+    .bg-decoration.right { left: auto; right: 5%; font-size: 6rem; color: rgba(78, 107, 92, 0.045); letter-spacing: 24px; }
+
+    .frame {
+        width: 100%; max-width: 1120px; height: 94vh; position: relative; z-index: 10; padding: 14px;
+        background-color: var(--bg-color); border: 1px solid var(--gold-dark); box-shadow: 0 0 40px rgba(0, 0, 0, 0.55);
+    }
+    .container {
+        width: 100%; height: 100%; position: relative; background: rgba(43, 34, 25, 0.94);
+        border: 1px solid var(--border-light); box-shadow: inset 0 0 40px rgba(201, 164, 94, 0.06); display: flex; flex-direction: column; overflow: hidden;
+    }
+    .frame::before, .frame::after, .frame .corner-bl, .frame .corner-br {
+        content: ""; position: absolute; width: 24px; height: 24px; border: 1.5px solid var(--gold); pointer-events: none; z-index: 20; opacity: 0.8;
+    }
+    .frame::before { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+    .frame::after { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+    .frame .corner-bl { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+    .frame .corner-br { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+
+    .btn { font-family: 'Noto Serif KR', serif; background: rgba(0, 0, 0, 0.5); border: 1px solid var(--gold-dark); color: var(--text-base); padding: 8px 20px; cursor: pointer; transition: all 0.3s ease; font-size: 1rem; letter-spacing: 2px; }
+    .btn:hover { background: rgba(122, 106, 78, 0.18); border-color: var(--gold-dark); color: #fff; box-shadow: 0 0 15px rgba(122, 106, 78, 0.25); }
+    .small-btn { padding: 4px 8px !important; font-size: 0.75rem !important; letter-spacing: 1px !important; }
+
+    .page { display: none; width: 100%; height: 100%; padding: 40px; flex-direction: column; }
+    .page.active { display: flex; }
+
+    #page-auth { justify-content: center; align-items: center; text-align: center; }
+    .auth-title { font-size: 1.5rem; letter-spacing: 10px; margin-bottom: 5px; color: var(--gold); font-weight: 700; }
+    .auth-sub { font-size: 0.8rem; color: var(--gold-dark); letter-spacing: 5px; margin-bottom: 50px; }
+    .auth-input-box input { background: transparent; border: none; border-bottom: 1px solid var(--gold); color: #fff; font-size: 1.2rem; text-align: center; padding: 10px; outline: none; font-family: inherit; width: 300px; letter-spacing: 2px; }
+
+    #page-setup { padding: 20px 28px; flex-direction: column; overflow: hidden !important; }
+    .setup-layout { display: grid; grid-template-columns: minmax(250px, .86fr) minmax(370px, 1.14fr); gap: 22px !important; height: 100% !important; min-height: 0 !important; }
+    .setup-left { display: flex !important; flex-direction: column !important; min-height: 0 !important; }
+    .setup-right { overflow-y: auto !important; padding-right: 5px !important; min-height: 0 !important; }
+    .setup-scroll::-webkit-scrollbar, .ally-area::-webkit-scrollbar, .log-area::-webkit-scrollbar { width: 6px; }
+    .setup-scroll::-webkit-scrollbar-track, .ally-area::-webkit-scrollbar-track, .log-area::-webkit-scrollbar-track { background: rgba(0,0,0,.25); }
+    .setup-scroll::-webkit-scrollbar-thumb, .ally-area::-webkit-scrollbar-thumb, .log-area::-webkit-scrollbar-thumb { background: var(--gold-dark); border-radius: 1px; }
+
+    .section-title { font-size: 1.2rem; color: var(--gold); border-bottom: 1px solid var(--border-light); padding-bottom: 10px; margin-bottom: 20px; letter-spacing: 2px; }
+    .setup-card { border: 1px solid var(--border-light); background: rgba(0,0,0,.16); padding: 14px; }
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .field label { font-size: 0.85rem; color: var(--gold-dark); letter-spacing: 1px; }
+    .field input[type="text"] { width: 100%; background: #17110d; border: 1px solid var(--border-light); color: var(--text-base); padding: 9px; font-family: inherit; font-size: 1rem; }
+    .field input[type="text"]:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 8px rgba(201,164,94,.25); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .form-row .field { margin-bottom: 0; }
+    
+    .personality-picker, .role-picker, .weapon-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+    .personality-chip, .role-chip, .weapon-chip { padding: 8px 14px; border: 1px solid var(--border-light); background: #17110d; color: var(--text-base); font-size: 0.84rem; font-family: inherit; cursor: pointer; transition: 0.2s; border-radius: 2px; }
+    .personality-chip:hover, .role-chip:hover, .weapon-chip:hover { border-color: var(--gold-dark); color: #fff; }
+    .personality-chip.active, .role-chip.active, .weapon-chip.active { background: var(--gold); color: var(--bg-color); border-color: var(--gold); font-weight: 700; }
+    .hidden { display: none !important; }
+
+    /* Relation map */
+    .relation-tools { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+    .relation-tool.active { border-color: var(--gold); color: var(--gold); background: rgba(201,164,94,.08); }
+    .relation-hint { font-size: 0.75rem; line-height: 1.7; color: var(--gold-dark); margin-bottom: 10px; }
+    .relation-map { position: relative; width: 100%; height: clamp(280px, 34vh, 335px); overflow: hidden; border: 1px solid var(--border-dark); background: radial-gradient(circle at center, rgba(201,164,94,.055), transparent 62%); margin-top: 8px; }
+    .relation-map .node { position: absolute; transform: translate(-50%, -50%); border: 1px solid var(--gold-dark); border-radius: 50%; background: var(--panel-bg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-base); cursor: pointer; z-index: 3; box-shadow: 0 0 15px rgba(0,0,0,.25); user-select: none; }
+    .relation-map .node.selected { border: 2px solid var(--gold); box-shadow: 0 0 18px rgba(201,164,94,.22); }
+    .svg-lines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+    .relation-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.68rem; color: var(--gold-dark); margin-top: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-line { width: 22px; border-top: 2px solid; }
+    .legend-friend { border-color: #c9a45e; } .legend-family { border-color: #d8d2c4; } .legend-lover { border-color: #b84a4a; } .legend-feud { border-color: #000000; border-top-style: dashed; }
+
+    /* Character List & Filling Stats */
+    .char-card { border: 1px solid var(--border-light); padding: 11px; margin-bottom: 10px; background: rgba(0,0,0,.13); }
+    .char-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .char-card-name { color: var(--gold); font-size: 1rem; }
+    .char-card-meta { font-size: 0.72rem; color: var(--gold-dark); }
+    .char-card .stat-editor { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 11px; }
+    .char-card .stat-row { display: flex; flex-direction: column; gap: 6px; padding: 7px 4px; border: 1px solid rgba(201,164,94,.16); background: rgba(255,255,255,.02); align-items: stretch; }
+    .char-card .stat-row-label { font-size: 0.7rem; text-align: center; color: var(--gold-dark); }
+    .char-card .stat-buttons { display: flex; justify-content: center; gap: 2px; }
+    .char-card .stat-buttons .stat-btn { width: 22px; height: 22px; font-size: 0.65rem; background: #17110d; border: 1px solid var(--border-light); color: var(--text-base); cursor: pointer; transition: 0.2s; padding: 0; }
+    .char-card .stat-buttons .stat-btn.filled { background: var(--gold); color: var(--bg-color); border-color: var(--gold); font-weight: bold; }
+
+    /* Battle Area */
+    #page-battle { padding: 22px 34px !important; }
+    .enemy-area { text-align: center; padding: 20px 0; margin-bottom: 10px; position: relative; }
+    .enemy-name { font-size: 2rem; font-weight: 900; color: var(--blood-red); letter-spacing: 15px; text-shadow: 0 0 8px rgba(156, 59, 50, 0.55); animation: pulse 4s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.92; text-shadow: 0 0 8px rgba(156, 59, 50, 0.55); } 50% { opacity: 1; text-shadow: 0 0 14px rgba(156, 59, 50, 0.75); } }
+    .enemy-hp { font-size: 1.2rem; color: #fff; margin-top: 10px; font-family: monospace; }
+    .enemy-hp-bar { width: 60%; height: 2px; background: var(--border-light); margin: 10px auto; position: relative; }
+    .enemy-hp-fill { position: absolute; top: 0; left: 0; width: 70%; height: 100%; background: var(--blood-red); box-shadow: 0 0 10px var(--blood-red); transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+    .battle-phase { letter-spacing: 3px; color: var(--gold); font-size: 0.82rem; margin-bottom: 6px; }
+    .notice { color: var(--gold-dark); font-size: 0.8rem; }
+
+    /* Logs */
+    .log-area { flex: 1; border-top: 1px dashed var(--border-light); border-bottom: 1px dashed var(--border-light); padding: 20px 10px; display: flex; flex-direction: column; gap: 15px; background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 10%, transparent 90%, rgba(0,0,0,0.5) 100%); min-height: 280px !important; max-height: 340px !important; overflow-y: auto !important; }
+    .log-entry { font-size: 0.95rem; line-height: 1.8; animation: logIn 0.18s ease-out; }
+    @keyframes logIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    
+    .turn-divider { margin: 15px 0; padding: 10px; text-align: center; letter-spacing: 5px; font-weight: 700; animation: turnRise .5s cubic-bezier(.2,.8,.3,1) both; }
+    @keyframes turnRise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .ally-turn-marker { color: var(--gold); background: rgba(0,0,0,0.4); border-block: 1px solid var(--border-dark); }
+    .enemy-turn-marker { color: var(--blood-red); background: rgba(0,0,0,0.4); border-block: 1px solid var(--blood-dark); }
+    .record-marker { color: var(--text-base); background: rgba(0,0,0,0.6); border-block: 1px solid #444; }
+
+    .log-critical { border-left: 2px solid #ffb347 !important; padding-left: 10px; }
+    .log-critical b { color: #ffb347 !important; text-shadow: 0 0 6px rgba(255,179,71,.5); }
+    .log-combo { border: 1px solid var(--gold) !important; padding: 10px; background: rgba(201,164,94,.12) !important; box-shadow: 0 0 14px rgba(201,164,94,.22); }
+    .log-death { border: 1px solid var(--blood-red) !important; background: rgba(156,59,50,.16) !important; padding: 10px; animation: hitShake .4s; }
+    .log-death b { color: var(--blood-red) !important; font-size: 1.05em; letter-spacing: 2px; }
+    .log-breakdown-strong { border: 1px solid var(--blood-red) !important; background: rgba(156,59,50,.2) !important; padding: 10px; animation: hitShake .5s; }
+    .glitch-line { display: inline-block; color: var(--blood-red); letter-spacing: 3px; font-style: italic; opacity: .9; animation: glitchJitter 1.3s infinite; }
+    @keyframes glitchJitter { 0%, 100% { transform: translateX(0) skewX(0); text-shadow: 0 0 0 transparent; } 45% { transform: translateX(1.5px) skewX(-2deg); opacity: .55; text-shadow: 1px 0 0 rgba(156,59,50,.6), -1px 0 0 rgba(94,124,104,.4); } 55% { transform: translateX(-1.5px) skewX(2deg); opacity: 1; text-shadow: -1px 0 0 rgba(156,59,50,.6), 1px 0 0 rgba(94,124,104,.4); } }
+
+    /* Roster bottom */
+    .ally-area { display: flex !important; flex-direction: column !important; gap: 8px !important; height: 250px !important; max-height: 250px !important; overflow-y: auto !important; padding-right: 4px !important; margin-top: 15px; }
+    .ally-card { display: grid !important; grid-template-columns: minmax(70px, 90px) minmax(80px, 100px) 1fr 1fr !important; align-items: center !important; gap: 12px !important; width: 100% !important; min-width: 0 !important; min-height: 46px !important; padding: 9px 12px !important; border: 1px solid var(--border-light); background: rgba(255,255,255,0.02); flex: none !important; font-size: 0.74rem !important; }
+    .ally-card.just-hit { animation: hitShake 0.35s; }
+    @keyframes hitShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+    .ally-card.monster { border-color: var(--blood-red); background: rgba(156,59,50,.08); animation: monsterCardJitter 2.4s infinite; }
+    @keyframes monsterCardJitter { 0%, 100% { filter: none; } 50% { filter: hue-rotate(8deg) contrast(1.08); } }
+    
+    /* 확실한 사망 UI 처리 */
+    .ally-card.dead { opacity: 0.35 !important; filter: grayscale(100%); background: #000 !important; border-color: #222 !important; }
+    .ally-card.dead .ally-name { text-decoration: line-through; color: #777; }
+    
+    .ally-card .ally-name { font-size: 0.85rem !important; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ally-card .ally-meta { font-size: 0.66rem !important; color: var(--gold-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ally-card .ally-stat { display: flex; flex-direction: column; gap: 3px; }
+    .ally-card .ally-stat-label { font-size: 0.6rem !important; color: var(--gold-dark); display: flex; justify-content: space-between; }
+    .ally-card .bar { height: 6px !important; background: #15100c; overflow: hidden; margin: 0 !important; }
+    .ally-card .bar > span { display: block; height: 100%; background: var(--jade); transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+    .ally-card .mental-bar > span { background: var(--gold); }
+    .ally-card.monster .mental-bar > span { background: var(--blood-red); }
+
+    .action-area { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 20px; }
+    .next-btn { width: 100%; max-width: 400px; padding: 15px; font-size: 1.1rem; font-weight: 900; letter-spacing: 5px; border: 1px solid var(--blood-dark); background: linear-gradient(180deg, rgba(156, 59, 50, 0.1) 0%, transparent 100%); color: var(--blood-red); position: relative; overflow: hidden; }
+    .next-btn:disabled { opacity: 0.5; pointer-events: none; }
+    .next-btn:hover { background: rgba(156, 59, 50, 0.15); border-color: var(--blood-red); color: #fff; }
+
+    .result-overlay { position: fixed; inset: 0; background: rgba(7,4,2,.86); display: none; align-items: center; justify-content: center; z-index: 200; }
+    .result-overlay.show { display: flex; }
+    .result-modal { width: min(650px, 92vw); padding: 28px; border: 1px solid var(--gold-dark); background: var(--panel-bg); }
+    .result-title { text-align: center; color: var(--gold); font-size: 1.45rem; letter-spacing: 5px; margin-bottom: 20px; }
+    .result-sub { text-align: center; margin-bottom: 20px; }
+    .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .result-grid div { padding: 9px; border: 1px solid var(--border-dark); display: flex; justify-content: space-between; font-size: 0.85rem; }
+    .result-best { margin-top: 14px; border: 1px solid var(--border-light); padding: 12px; text-align: center; line-height: 2; font-size: 0.95rem; }
+    .result-actions { display: flex; justify-content: center; margin-top: 18px; }
+
+    .phase-transition { position: fixed; inset: 0; background: rgba(10,6,4,.88); z-index: 100; display: flex; align-items: center; justify-content: center; text-align: center; opacity: 0; pointer-events: none; transition: opacity .35s; }
+    .phase-transition.show { opacity: 1; pointer-events: auto; }
+    .phase-transition .inner { border: 1px solid var(--blood-red); padding: 35px 55px; background: #17100c; }
+    .phase-transition .big { font-size: 1.6rem; color: var(--blood-red); letter-spacing: 7px; margin-bottom: 14px; }
+    
+    body.ui-shake .container { animation: uiShake 0.34s linear; }
+    body.ui-flash .container { animation: uiFlash 0.42s ease; }
+    @keyframes uiShake { 0%,100%{transform:translate(0)} 20%{transform:translate(-7px,2px)} 40%{transform:translate(6px,-2px)} 60%{transform:translate(-4px,1px)} 80%{transform:translate(4px,-1px)} }
+    @keyframes uiFlash { 0%,100%{filter:none} 30%{filter:brightness(1.75)} 55%{filter:brightness(0.65)} 80%{filter:brightness(1.35)} }
+    
+    footer { display: none !important; }
+  </style>
+</head><body>
+<div class="bg-decoration">怪 異 記 錄</div><div class="bg-decoration right">因 縁 生 死</div>
+<div class="frame"><div class="corner-bl"></div><div class="corner-br"></div>
+<div class="container">
+
+<!-- 페이지 1: 로그인 -->
+<section id="page-auth" class="page active">
+  <div><div class="auth-title">戰 鬪 記 錄</div><div class="auth-sub">ACCESS REQUIRED</div>
+  <div class="auth-input-box"><input id="password-input" type="password" placeholder="비밀번호 입력" autocomplete="off"></div>
+  <button id="login-btn" class="btn" style="width:200px;margin-top:18px">재개</button>
+  <div id="auth-message" class="notice" style="margin-top:18px;min-height:1.5em"></div></div>
+</section>
+
+<!-- 페이지 2: 명부 설정 -->
+<section id="page-setup" class="page">
+  <div class="setup-layout">
+    <div class="setup-left setup-scroll">
+      <div class="section-title">인연도 (因緣圖)</div>
+      <p class="relation-hint">관계를 선택한 뒤 원형 노드를 두 번 누르면 선이 이어집니다. 같은 관계를 다시 두 번 누르면 변경됩니다. 지우개는 선을 선택해 삭제합니다.</p>
+      <div class="relation-tools" id="relation-tools">
+        <button class="btn small-btn relation-tool active" data-rel="친구선">友</button>
+        <button class="btn small-btn relation-tool" data-rel="가족선">家</button>
+        <button class="btn small-btn relation-tool" data-rel="연인선">戀</button>
+        <button class="btn small-btn relation-tool" data-rel="악연선">惡緣</button>
+        <button class="btn small-btn relation-tool" data-rel="erase">지우개</button>
+      </div>
+      <div class="relation-map" id="relation-map"><svg class="svg-lines" id="relation-lines"></svg></div>
+      <div class="relation-legend"><span class="legend-item"><i class="legend-line legend-friend"></i> 친구</span><span class="legend-item"><i class="legend-line legend-family"></i> 가족</span><span class="legend-item"><i class="legend-line legend-lover"></i> 연인</span><span class="legend-item"><i class="legend-line legend-feud"></i> 악연</span></div>
+    </div>
+    
+    <div class="setup-right setup-scroll">
+      <div class="section-title">인물 명부 (人物 名簿)</div>
+      
+      <div class="setup-card">
+        <div class="field"><label>이름</label><input id="char-name" type="text" placeholder="이름을 입력하라"></div>
+        <div class="field">
+          <label>성격</label>
+          <div class="personality-picker">
+            <button type="button" class="personality-chip active" data-p="냉정">냉정</button>
+            <button type="button" class="personality-chip" data-p="활발">활발</button>
+            <button type="button" class="personality-chip" data-p="다정">다정</button>
+            <button type="button" class="personality-chip" data-p="오만">오만</button>
+            <button type="button" class="personality-chip" data-p="소심">소심</button>
+            <button type="button" class="personality-chip" data-p="냉소">냉소</button>
+            <button type="button" class="personality-chip" data-p="순수">순수</button>
+            <button type="button" class="personality-chip" data-p="과묵">과묵</button>
+            <button type="button" class="personality-chip" data-p="장난">장난</button>
+            <button type="button" class="personality-chip" data-p="우울">우울</button>
+          </div>
+          <input type="hidden" id="char-personality" value="냉정">
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>역할</label>
+            <div class="role-picker">
+              <button type="button" class="role-chip active" data-r="무사">무사</button>
+              <button type="button" class="role-chip" data-r="의원">의원</button>
+            </div>
+            <input type="hidden" id="char-role" value="무사">
+          </div>
+          <div class="field" id="weapon-field"><label>무기</label><div class="weapon-picker"><button type="button" class="weapon-chip active" data-w="검">검</button><button type="button" class="weapon-chip" data-w="창">창</button><button type="button" class="weapon-chip" data-w="격투">격투</button></div><input type="hidden" id="char-weapon" value="검"></div>
+        </div>
+        <div class="notice stat-default-note" style="margin-top:8px;">명부에 등록한 뒤, 아래에서 스탯을 버튼으로 분배할 수 있습니다. (기본 3)</div>
+        <button class="btn" id="register-btn" style="width:100%; margin-top:8px;">명부에 등록하기</button>
+      </div>
+      
+      <div id="character-list" style="margin-top:12px"></div>
+      
+      <div style="margin-top:24px; padding-top:16px; border-top:1px dashed #555; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn small-btn" id="export-btn" style="flex:1;">데이터 저장 (.json)</button>
+        <button class="btn small-btn" id="import-btn" style="flex:1;">데이터 불러오기</button>
+        <input type="file" id="import-file" accept=".json" style="display:none;">
+      </div>
+
+      <div class="start-area" style="margin-top:20px;">
+        <button class="btn" id="start-btn" style="width:100%;">괴이 처치 시작</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 페이지 3: 전투 시뮬레이션 -->
+<section id="page-battle" class="page">
+  <div class="enemy-area"><div class="battle-phase" id="wave-label">제 1 장 · 전조</div><div class="enemy-name" id="enemy-name">【 괴 이 】</div><div class="enemy-hp-bar"><div class="enemy-hp-fill" id="enemy-hp-fill"></div></div><div class="enemy-hp" id="enemy-hp">HP 0 / 0</div><div class="notice" id="boss-pattern" style="margin-top:8px"></div></div>
+  <div class="log-area" id="battle-log"></div>
+  <div class="ally-area" id="ally-area"></div>
+  <div class="action-area"><div class="battle-note" id="battle-note"></div><button class="btn next-btn" id="next-btn">다음 기록 (NEXT)</button></div>
+</section>
+
+<!-- 결과창 -->
+<div class="result-overlay" id="result-overlay">
+  <div class="result-modal">
+    <div class="result-title" id="result-title">戰鬪 終了</div>
+    <div class="result-sub" id="result-sub"></div>
+    <div class="result-grid" id="result-grid"></div>
+    <div class="result-best" id="result-best"></div>
+    <div class="result-actions"><button class="btn" id="result-back">명부로 돌아가기</button></div>
+  </div>
+</div>
+
+</div></div>
+<div class="phase-transition" id="phase-transition"><div class="inner"><div class="big">第二章</div><div id="transition-text">괴이가 본모습을 드러냅니다.</div></div></div>
+
+<script>
+const PASSWORD='개강이얼마남지않아슬피우는새';
+const $=s=>document.querySelector(s);
+let game={characters:[],relationships:{},relationTool:'친구선',selectedNode:null,enemy:null,phase:1,turn:0,finished:false,stats:{combo:0,heal:0,encourage:0,miss:0,breakdown:0,critical:0,death:0,evade:0,totalDamage:0}};
+const personalities={
+ 냉정:{attack:['「비키거라.」','「끝내도록 하지.」'],miss:['「……방금은 보지 못한 것으로 하거라.」'],heal:['「상처부터 돌보도록.」'],encourage:['「정신 차려. 아직 끝나지 않았다.」'],critical:['「이제 끝이다.」']},
+ 활발:{attack:['「간다!」','「받아라!」'],miss:['「어라? 빗나갔네?」'],heal:['「조금만 참아! 금방 나아!」'],encourage:['「괜찮아! 할 수 있어!」'],critical:['「좋았어! 제대로 들어갔다!」']},
+ 다정:{attack:['「조금 아플 것이다.」'],miss:['「미안하다. 다음엔 맞출게.」'],heal:['「괜찮아. 내가 치료할게.」'],encourage:['「괜찮아. 아직 내가 곁에 있어.」'],critical:['「이제 괜찮아.」']},
+ 오만:{attack:['「감히 내 앞을 막느냐.」'],miss:['「……운이 나빴군.」'],heal:['「죽지는 마라. 귀찮아진다.」'],encourage:['「쓰러지지 마라. 내 체면이 서지 않는다.」'],critical:['「당연한 결과다.」']},
+ 소심:{attack:['「으, 으아아!」'],miss:['「아, 아니! 분명 맞을 줄 알았는데!」'],heal:['「조금만 버텨줘……!」'],encourage:['「괜찮아…… 괜찮아. 나 여기 있어.」'],critical:['「마, 맞았다……!」']},
+ 냉소:{attack:['「이 짓도 지겹군.」','「뭐, 어차피 이길 거다.」'],miss:['「……운까지 없군.」'],heal:['「기대는 하지 마라.」'],encourage:['「죽든 말든 상관없다만…… 지금은 곤란해.」'],critical:['「흥, 별거 아니군.」']},
+ 순수:{attack:['「다치게 해서 미안해요.」'],miss:['「어, 어라……? 이상하다.」'],heal:['「금방 나을 거예요, 조금만요.」'],encourage:['「저 여기 있어요. 무섭지 않아요.」'],critical:['「어? 진짜 맞았어요!」']},
+ 과묵:{attack:['「……」'],miss:['「……실수다.」'],heal:['「……참아라.」'],encourage:['「……옆에 있다.」'],critical:['「……끝났다.」']},
+ 장난:{attack:['「자, 요리조리~ 피해봐라!」'],miss:['「엇, 삐끗! 못 본 걸로 하자.」'],heal:['「아프지? 그래도 참아, 알았지?」'],encourage:['「이봐, 웃어. 안 그럼 나만 손해잖아.」'],critical:['「봤지? 이게 실력이다!」']},
+ 우울:{attack:['「……해야만 한다면.」'],miss:['「역시…… 나는 안 되는군.」'],heal:['「이런 거라도 도움이 됐으면.」'],encourage:['「무너지지 마…… 나도 버티고 있으니까.」'],critical:['「……운이 좋았을 뿐이다.」']}
+};
+function esc(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function dialogue(c,t){return pick(personalities[c.personality][t]||['']);}
+function flash(kind='flash'){document.body.classList.remove('ui-shake','ui-flash');void document.body.offsetWidth;document.body.classList.add(kind==='shake'?'ui-shake':'ui-flash');setTimeout(()=>document.body.classList.remove('ui-shake','ui-flash'),500)}
+
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$('#'+id).classList.add('active');}
+
+function checkPassword(){const i=$('#password-input');if(i.value===PASSWORD){showPage('page-setup')}else{$('#auth-message').textContent='인증 실패.';i.value=''}}
+$('#login-btn').onclick=checkPassword;$('#password-input').addEventListener('keydown',e=>{if(e.key==='Enter')checkPassword()});
+
+function eff(v){return v*15+25} 
+
+// 명부에 등록
+$('#register-btn').onclick = () => {
+    const name=$('#char-name').value.trim();
+    if(!name){ alert('이름을 입력하십시오.'); return; }
+    const role=$('#char-role').value;
+    const c={
+        id:('c_'+Date.now().toString(36)), name, personality:$('#char-personality').value, role, weapon:role==='무사'?$('#char-weapon').value:null,
+        attack:3, agility:3, luck:3, mentalStat:3, healthStat:3, hp:0, maxHp:0, mental:0, maxMental:0, status:'alive', _displayStatus:'alive', totalDamageDealt:0
+    };
+    derive(c); c._displayHp=c.hp; c._displayMental=c.mental;
+    game.characters.push(c);
+    $('#char-name').value='';
+    renderList(); renderMap();
+};
+
+function derive(c){c.maxHp=Math.round(eff(c.healthStat)*1.4+20);c.maxMental=Math.round(eff(c.mentalStat)*1.0+20);}
+
+function renderList(){
+    const box=$('#character-list'); box.innerHTML='';
+    game.characters.forEach(c=>{
+        if(c._displayHp===undefined) c._displayHp=c.hp;
+        if(c._displayMental===undefined) c._displayMental=c.mental;
+        if(c._displayStatus===undefined) c._displayStatus=c.status;
+        const d=document.createElement('div'); d.className='char-card';
+        d.innerHTML=`<div class="char-card-head"><div><span class="char-card-name">${esc(c.name)}</span> <span class="char-card-meta">${esc(c.personality)} · ${esc(c.role)}${c.weapon?' · '+esc(c.weapon):''}</span></div><button class="btn small-btn" data-del="${c.id}">삭제</button></div>
+        <div class="stat-editor">
+        ${[['attack','攻 공격'],['agility','敏 민첩'],['luck','運 행운'],['mentalStat','心 정신'],['healthStat','體 체력']].map(([k,l])=>`
+            <div class="stat-row" data-stat="${c.id}" data-key="${k}">
+                <span class="stat-row-label">${l}</span>
+                <div class="stat-buttons">${[1,2,3,4,5].map(n=>`<button type="button" class="stat-btn${n<=c[k]?' filled':''}" data-val="${n}">${n}</button>`).join('')}</div>
+            </div>`).join('')}
+        </div><div class="notice" style="margin-top:7px">실전 HP ${c.maxHp} · 정신력 ${c.maxMental}</div>`;
+        box.appendChild(d);
+    });
+    box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ game.characters=game.characters.filter(c=>c.id!==b.dataset.del); cleanupRelations(); renderList(); renderMap(); });
+    box.querySelectorAll('.stat-btn').forEach(b=>b.onclick=()=>{
+        const row=b.closest('.stat-row'); const c=game.characters.find(x=>x.id===row.dataset.stat); if(!c) return;
+        c[row.dataset.key]=+b.dataset.val;
+        const oldHp=c.hp, oldMental=c.mental; derive(c);
+        c.hp=Math.min(c.maxHp, oldHp||c.maxHp); c.mental=Math.min(c.maxMental, oldMental||c.maxMental);
+        c._displayHp=c.hp; c._displayMental=c.mental;
+        renderList(); renderMap();
+    });
+}
+
+// Map & Roles setup
+function cleanupRelations(){const ids=new Set(game.characters.map(c=>c.id));Object.keys(game.relationships).forEach(k=>{const [a,b]=k.split('|');if(!ids.has(a)||!ids.has(b))delete game.relationships[k]})}
+function pair(a,b){return[a.id,b.id].sort().join('|')}
+function rel(a,b){return game.relationships[pair(a,b)]}
+function relationColor(r){return {친구선:'#c9a45e',가족선: '#d8d2c4',연인선:'#b84a4a',악연선:'#000'}[r]||'#000'}
+function relationWidth(r){return r==='연인선'?3:r==='가족선'?2:1.5}
+function renderMap(){
+    const map=$('#relation-map'),svg=$('#relation-lines'); map.querySelectorAll('.node').forEach(n=>n.remove()); svg.innerHTML='';
+    const n=game.characters.length; if(!n) return;
+    const rect=map.getBoundingClientRect(), cx=rect.width/2, cy=rect.height/2, rad=Math.min(rect.width,rect.height)*.34;
+    let size=n<=4?58:n<=6?52:n<=8?45:n<=10?39:34, font=n<=4?.62:n<=6?.57:n<=8?.51:n<=10?.45:.40;
+    const pos={};
+    game.characters.forEach((c,i)=>{
+        const a=-Math.PI/2+(Math.PI*2*i/n), x=cx+rad*Math.cos(a), y=cy+rad*Math.sin(a); pos[c.id]={x,y};
+        const node=document.createElement('div'); node.className='node'+(game.selectedNode===c.id?' selected':'');
+        node.textContent=c.name.slice(0,n>10?4:6); node.style.left=x+'px'; node.style.top=y+'px'; node.style.width=size+'px'; node.style.height=size+'px'; node.style.fontSize=font+'rem';
+        node.onclick=()=>selectNode(c.id); map.appendChild(node);
+    });
+    Object.entries(game.relationships).forEach(([key,r])=>{
+        const [a,b]=key.split('|'); if(!pos[a]||!pos[b]) return;
+        const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+        l.setAttribute('x1',pos[a].x); l.setAttribute('y1',pos[a].y); l.setAttribute('x2',pos[b].x); l.setAttribute('y2',pos[b].y);
+        l.setAttribute('stroke',relationColor(r)); l.setAttribute('stroke-width',relationWidth(r)); if(r==='악연선') l.setAttribute('stroke-dasharray','7 5'); svg.appendChild(l);
+    });
+}
+function selectNode(id){
+    if(game.relationTool==='erase'){
+        if(game.selectedNode!==null){
+            delete game.relationships[pair({id:game.selectedNode},{id})]; game.selectedNode=null;
+        } else game.selectedNode=id;
+    } else {
+        if(game.selectedNode!==null){
+            if(game.selectedNode!==id) game.relationships[pair({id:game.selectedNode},{id})]=game.relationTool;
+            game.selectedNode=null;
+        } else game.selectedNode=id;
+    } renderMap();
+}
+document.querySelectorAll('.relation-tool').forEach(b=>b.onclick=()=>{document.querySelectorAll('.relation-tool').forEach(x=>x.classList.remove('active'));b.classList.add('active');game.relationTool=b.dataset.rel;game.selectedNode=null;renderMap()});
+document.querySelectorAll('.personality-chip').forEach(b=>b.onclick=()=>{document.querySelectorAll('.personality-chip').forEach(x=>x.classList.toggle('active',x===b));$('#char-personality').value=b.dataset.p});
+document.querySelectorAll('.role-chip').forEach(b=>b.onclick=()=>{const role=b.dataset.r;document.querySelectorAll('.role-chip').forEach(x=>x.classList.toggle('active',x===b));$('#char-role').value=role;$('#weapon-field').classList.toggle('hidden',role!=='무사');});
+document.querySelectorAll('.weapon-chip').forEach(b=>b.onclick=()=>{document.querySelectorAll('.weapon-chip').forEach(x=>x.classList.toggle('active',x===b));$('#char-weapon').value=b.dataset.w});
+
+// Battle System
+let q=[]; let busy=false;
+
+// 로그를 묶음으로 한번에 출력
+function pushQ(lines, opts){ q.push(Object.assign({lines}, opts||{})); pump(); }
+function pump(){
+    if(busy || !q.length) return;
+    busy=true; $('#next-btn').disabled=true;
+    const entry=q.shift();
+    const box=$('#battle-log');
+    const wrap=document.createElement('div');
+    wrap.className='log-entry battle-log-entry'+(entry.cls?(' '+entry.cls):'');
+    box.appendChild(wrap);
+    
+    // 전체 블록을 한 번에 표시
+    entry.lines.forEach(line=>{
+        const p=document.createElement('div'); p.innerHTML=line; wrap.appendChild(p);
+    });
+    box.scrollTop=box.scrollHeight;
+
+    // UI 업데이트 이펙트 즉시 실행
+    if(entry.effect) entry.effect();
+
+    setTimeout(()=>{
+        busy=false;
+        if(q.length) pump(); else $('#next-btn').disabled=!!game.finished;
+    }, entry.fast ? 50 : 250); // 빠르게 다음 로그로 진행
+}
+
+async function flushLogs(){
+    while(busy||q.length){ if(!busy) pump(); await new Promise(r=>setTimeout(r,30)); }
+    $('#next-btn').disabled=!!game.finished;
+    const box = $('#battle-log');
+    box.scrollTop = box.scrollHeight; // 스크롤 완전히 내림
+}
+
+function alive(){ return game.characters.filter(c=>c.status==='alive'); }
+function isGameOver(){ return alive().length === 0; }
+
+function updateBattleUI(){
+    const e=game.enemy; if(!e) return;
+    $('#wave-label').textContent=game.phase===1?'제 1 장 · 전조':'제 2 장 · 본체';
+    $('#enemy-hp').textContent=`HP ${Math.max(0,e.hp)} / ${e.maxHp}`;
+    $('#enemy-hp-fill').style.width=Math.max(0,e.hp/e.maxHp*100)+'%';
+    $('#boss-pattern').textContent=game.phase===1?'짧은 탐색전. 괴이는 힘을 숨기고 있습니다.':'최종보스전. 강한 공격과 정신공격이 섞입니다.';
+    
+    const area=$('#ally-area'); area.innerHTML='';
+    game.characters.forEach(c=>{
+        const s=c._displayStatus;
+        const dh=Math.max(0,c._displayHp), dm=Math.max(0,c._displayMental);
+        const card=document.createElement('div');
+        card.className='ally-card '+(s==='monster'?'monster ':s==='dead'?'dead':'');
+        card.innerHTML=`
+            <div class="ally-name">${esc(c.name)}</div>
+            <div class="ally-meta">${esc(c.personality)} · ${esc(c.role)}${s==='monster'?' · 괴이':s==='dead'?' · 사망':''}</div>
+            <div class="ally-stat"><div class="ally-stat-label"><span>HP</span><span>${Math.max(0,dh)}/${c.maxHp}</span></div><div class="bar"><span style="width:${c.maxHp?dh/c.maxHp*100:0}%"></span></div></div>
+            <div class="ally-stat"><div class="ally-stat-label"><span>精神</span><span>${Math.max(0,dm)}/${c.maxMental}</span></div><div class="bar mental-bar"><span style="width:${c.maxMental?dm/c.maxMental*100:0}%"></span></div></div>`;
+        area.appendChild(card);
+    });
+}
+
+function glitchText(){ const glyphs=['◆','▲','■','◇','×','ᛝ','ᚦ','Ж','卍','҂','◈','†','∅','卐','◎']; let out=''; for(let i=0;i<6;i++) out+=glyphs[Math.floor(Math.random()*glyphs.length)]; return `「${out}……」`; }
+
+function emitBreakdown(c){
+    pushQ([`<b>${esc(c.name)}의 정신력이 끊어졌습니다.</b>`,`<span style="color:var(--blood-red)">[ 인간 → 괴이 ]</span>`,`<span class="glitch-line">${glitchText()}</span>`], {
+        cls:'log-breakdown-strong', effect:()=>{ c._displayStatus='monster'; updateBattleUI(); }
+    });
+}
+
+function checkMental(c){
+    if(c.mental<=0 && c.status==='alive'){
+        c.mental=0; c.status='monster'; game.stats.breakdown++; emitBreakdown(c);
+    }
+}
+
+function hitTarget(target, damage, mentalDamage=0, strong=false){
+    if(!target || target.status!=='alive') return;
+    target.hp -= damage; target.mental = Math.max(0, target.mental-mentalDamage);
+    let died=false, brokeDown=false;
+    
+    if(target.hp<=0){ target.hp=0; target.status='dead'; game.stats.death++; died=true; }
+    else if(target.mental<=0){ target.mental=0; target.status='monster'; game.stats.breakdown++; brokeDown=true; }
+
+    pushQ([`괴이가 ${esc(target.name)}을(를) 노립니다.`, `HP -${damage}${mentalDamage?` · 정신력 -${mentalDamage}`:''}`], {
+        cls: strong ? 'log-critical' : '',
+        effect:()=>{ target._displayHp=target.hp; target._displayMental=target.mental; updateBattleUI(); }
+    });
+
+    if(died){
+        pushQ([`<b>◆ ${esc(target.name)}이(가) 쓰러졌습니다. ◆</b>`], {cls:'log-death', effect:()=>{ target._displayStatus='dead'; updateBattleUI();} });
+        game.characters.filter(c=>c.status==='alive'&&c.id!==target.id).forEach(c=>{
+            const r=rel(c,target); if(!['친구선','가족선','연인선'].includes(r)) return;
+            const loss=r==='연인선'?18:r==='가족선'?13:10; c.mental=Math.max(0,c.mental-loss);
+            let brk=false; if(c.mental<=0 && c.status==='alive'){ c.status='monster'; game.stats.breakdown++; brk=true; }
+            pushQ([`【${esc(c.name)}】 정신력 -${loss} · 가까운 이의 죽음`], {effect:()=>{ c._displayMental=c.mental; updateBattleUI(); }});
+            if(brk) emitBreakdown(c);
+        });
+    }
+    if(brokeDown) emitBreakdown(target);
+}
+
+function attack(c){
+    if(c.status!=='alive') return false;
+    const chance=Math.min(.95,Math.max(.35,.55+(eff(c.agility)-50)*.004+(eff(c.luck)-50)*.002));
+    if(Math.random()>chance){
+        game.stats.miss++; pushQ([`${esc(c.name)}이 ${esc(c.weapon||'무기')}을 휘둘렀습니다.`,`<b>공격 실패.</b>`,esc(dialogue(c,'miss'))], {}); return false;
+    }
+    let damage=Math.max(1,Math.round(eff(c.attack)*.55+Math.random()*eff(c.attack)*.35));
+    if(Math.random()<Math.min(.22,eff(c.luck)/700)){
+        damage=Math.round(damage*1.7); game.stats.critical++;
+        pushQ([`${esc(c.name)}의 일격이 급소를 꿰뚫었습니다.`,`<b>치명타! 괴이에게 ${damage}의 피해.</b>`,esc(dialogue(c,'critical'))], {cls:'log-critical', effect:()=>updateBattleUI()});
+    }else{
+        pushQ([`${esc(c.name)}이 ${esc(c.weapon||'무기')}을 휘둘렀습니다.`,`괴이에게 ${damage}의 피해.`,esc(dialogue(c,'attack'))], {effect:()=>updateBattleUI()});
+    }
+    game.enemy.hp-=damage; c.totalDamageDealt = (c.totalDamageDealt || 0) + damage;
+    return true;
+}
+
+function heal(healer,target){
+    if(healer.status!=='alive'||target.status!=='alive') return;
+    const amount=Math.max(8,Math.round(eff(healer.mentalStat)*.18+Math.random()*10));
+    target.hp=Math.min(target.maxHp,target.hp+amount);
+    const loss=Math.max(3,Math.round((105-eff(healer.mentalStat))*.07+5)); healer.mental=Math.max(0,healer.mental-loss); game.stats.heal++;
+    pushQ([`${esc(healer.name)}이 ${esc(target.name)}의 상처를 치료합니다.`,`HP +${amount} · ${esc(healer.name)} 정신력 -${loss}`,esc(dialogue(healer,'heal'))], {
+        effect:()=>{ target._displayHp=target.hp; healer._displayMental=healer.mental; updateBattleUI(); }
+    });
+    checkMental(healer);
+}
+
+function encourage(a,b){
+    if(a.status!=='alive'||b.status!=='alive'||a.id===b.id) return;
+    const r=rel(a,b); let amount=r==='연인선'?20:r==='가족선'?15:r==='친구선'?12:r==='악연선'?2:6;
+    b.mental=Math.min(b.maxMental,b.mental+amount); game.stats.encourage++;
+    pushQ([`${esc(a.name)}이 ${esc(b.name)}을 붙잡았습니다.`,`정신력 +${amount}`,esc(dialogue(a,'encourage'))], {
+        effect:()=>{ b._displayMental=b.mental; updateBattleUI(); }
+    });
+}
+
+function combo(a,b){
+    if(a.status!=='alive'||b.status!=='alive') return false;
+    const r=rel(a,b); const deadCount=game.characters.filter(c=>c.status==='dead').length; const key=pair(a,b);
+    let chance=0, special=false;
+    if(['친구선','가족선','연인선'].includes(r)){ chance=r==='연인선'?.45:r==='가족선'?.35:.3; }
+    else if(r==='악연선'&&deadCount>=2&&!game.enemyAllianceUsed.has(key)){ chance=.3; special=true; } else return false;
+    if(Math.random()>chance) return false;
+    
+    const damage=Math.round((eff(a.attack)+eff(b.attack))*.42+Math.random()*20);
+    game.enemy.hp-=damage; a.totalDamageDealt += Math.floor(damage/2); b.totalDamageDealt += Math.ceil(damage/2);
+    game.stats.combo++; game.enemy.targetPriority=[a.id,b.id]; if(special) game.enemyAllianceUsed.add(key);
+    pushQ([`<b>◇ ${esc(a.name)}과 ${esc(b.name)}${special?', 악연을 넘어선 협공!':'의 합동공격!'}</b>`,`괴이에게 ${damage}의 피해.`], { cls:'log-combo', effect:()=>updateBattleUI() });
+    flash('flash'); return true;
+}
+
+function enemyTurnFixed(){
+    const targets=alive(); if(!targets.length) return;
+    pushQ(['<div class="turn-divider enemy-turn-marker">── 괴 이 의 턴 ──</div>'], {effect:()=>flash('flash')});
+    const count=game.turn===1?1:Math.max(1,Math.ceil(targets.length*(.5+Math.random()*.17)));
+    for(let i=0;i<count;i++){
+        const living=alive(); if(!living.length) break;
+        const t=living[Math.floor(Math.random()*living.length)];
+        let d=game.phase===1?Math.round(12+Math.random()*16):Math.round(22+Math.random()*28);
+        let m=game.phase===1?Math.round(3+Math.random()*6):Math.round(10+Math.random()*15);
+        let strong=false;
+        if(game.phase===2 && Math.random()<.32){ d=Math.round(d*1.55); m+=8; strong=true; pushQ(['<b>괴이가 흉성을 드러냅니다.</b>','強襲。'], {cls:'log-critical'}); }
+        const ev=Math.min(.3,Math.max(.03,.08+(eff(t.agility)-50)*.002));
+        if(Math.random()<ev){ game.stats.evade++; pushQ([`괴이의 공격이 【${esc(t.name)}】을 스쳐 지나갑니다.`,'<b>회피 성공.</b>'], {}); }
+        else hitTarget(t,d,m,strong);
+    }
+}
+
+function chooseActions(){
+    const a=alive(); if(!a.length) return;
+    let healers=a.filter(c=>c.role==='의원');
+    let wounded=a.filter(c=>c.hp<c.maxHp*.62).sort((x,y)=>x.hp/x.maxHp-y.hp/y.maxHp);
+    let lowMental=a.filter(c=>c.mental<c.maxMental*.4).sort((x,y)=>x.mental-y.mental);
+    let usedCombo=false; let acted=new Set();
+
+    // 악연 턴 스킵 확률 (15%)
+    for(let i=0; i<a.length; i++){
+        if(acted.has(a[i].id)) continue;
+        let badRels = a.filter(x => x.id !== a[i].id && !acted.has(x.id) && rel(a[i], x) === '악연선');
+        if(badRels.length > 0 && Math.random() < 0.15) {
+            acted.add(a[i].id); acted.add(badRels[0].id);
+            pushQ([`<span style="color:#888;"><b>${esc(a[i].name)}과(와) ${esc(badRels[0].name)}이(가) 서로 신경전을 벌이느라 턴을 놓쳤습니다!</b></span>`], {});
+        }
+    }
+
+    const deadCount=game.characters.filter(cc=>cc.status==='dead').length;
+    for(let i=0;i<a.length;i++){
+        const c=a[i]; if(acted.has(c.id)) continue;
+        if(c.role==='의원'){
+            if(lowMental.length&&lowMental[0].id!==c.id&&Math.random()<.45) encourage(c,lowMental[0]);
+            else if(wounded.length&&Math.random()<.72) heal(c,wounded[0]); else attack(c);
+        } else {
+            let partner=a.find(x=>x.id!==c.id && !acted.has(x.id) && x.role==='무사' && (['친구선','가족선','연인선'].includes(rel(c,x))||(rel(c,x)==='악연선'&&deadCount>=2&&!game.enemyAllianceUsed.has(pair(c,x)))));
+            if(partner&&!usedCombo){ usedCombo=combo(c,partner); if(usedCombo) acted.add(partner.id); }
+            else if(lowMental.length&&Math.random()<.18) encourage(c,lowMental[0]); else attack(c);
+        }
+    }
+}
+
+async function phaseTransitionFixed(){
+    const t=$('#phase-transition'); $('#transition-text').textContent='괴이가 본모습을 드러냅니다. 정신을 붙잡으십시오.';
+    flash('shake'); t.classList.add('show'); await new Promise(r=>setTimeout(r,1600)); t.classList.remove('show');
+    game.phase=2; game.turn=0; game.enemy={phase:2, maxHp:Math.round(420+game.characters.length*210), hp:Math.round(420+game.characters.length*210), targetPriority:[]};
+    updateBattleUI(); pushQ(['<b>제2장 · 본체</b>','이제부터 최종보스전입니다.','괴이가 당신들의 정신을 노리기 시작합니다.'], {});
+    const a=alive(); if(a.length) {
+        pushQ(['<div class="enemy-log"><b>── 제2장 정신침식 ──</b></div>','괴이가 살아 있는 모든 이의 정신을 건드립니다.'], {fast:true});
+        a.forEach(c=>{
+            const loss=Math.round(10+Math.random()*14+(100-eff(c.mentalStat))*.08); c.mental=Math.max(0,c.mental-loss);
+            pushQ([`【${esc(c.name)}】 정신력 -${loss}`], {fast:true, effect:()=>{ c._displayMental=c.mental; updateBattleUI(); }});
+            if(c.mental<=0 && c.status==='alive'){ c.status='monster'; game.stats.breakdown++; emitBreakdown(c); }
+        }); flash('flash');
+    } await flushLogs();
+}
+
+function showResultFixed(win){
+    const ds = game.characters.map(c => ({name: c.name, dmg: c.totalDamageDealt || 0})).sort((a,b)=>b.dmg-a.dmg);
+    $('#result-title').textContent=win?'戰鬪 終了 · 勝利':'戰鬪 終了 · 敗北';
+    $('#result-sub').textContent=win?'괴이가 소멸했습니다.':'모든 인물이 전투불능에 빠졌습니다.';
+    $('#result-grid').innerHTML=[['경과 라운드',game.turn],['합동공격',game.stats.combo],['치명타',game.stats.critical],['사망',game.stats.death],['정신붕괴',game.stats.breakdown],['회피',game.stats.evade]].map(x=>`<div><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');
+    $('#result-best').innerHTML=`<div>🏆 명예의 전당 (최고 딜러)<br><br><strong>${esc(ds.length?ds[0].name:'없음')}</strong> · 누적 피해량 ${ds.length?ds[0].dmg:0}</div>`;
+    $('#result-overlay').classList.add('show');
+}
+
+function finishFixed(win){ game.finished=true; $('#battle-note').textContent=win?'괴이가 소멸했습니다.':'모든 인물이 쓰러졌습니다.'; updateBattleUI(); showResultFixed(win); }
+$('#result-back').onclick = () => { $('#result-overlay').classList.remove('show'); showPage('page-setup'); renderList(); renderMap(); };
+
+$('#start-btn').onclick = () => {
+    if(game.characters.length<1) return alert('최소 한 명의 인물을 등록하십시오.');
+    game.phase=1; game.turn=0; game.finished=false; game.enemyAllianceUsed=new Set();
+    game.stats={combo:0,heal:0,encourage:0,miss:0,breakdown:0,critical:0,death:0,evade:0,totalDamage:0};
+    game.characters.forEach(c=>{ derive(c); c.status='alive'; c._displayStatus='alive'; c.hp=c.maxHp; c.mental=c.maxMental; c._displayHp=c.maxHp; c._displayMental=c.maxMental; c.totalDamageDealt=0; });
+    game.enemy={phase:1, maxHp:Math.round(170+game.characters.length*105), hp:Math.round(170+game.characters.length*105), targetPriority:[]};
+    $('#battle-log').innerHTML=''; q=[]; busy=false; showPage('page-battle'); updateBattleUI();
+    pushQ(['제1장 · 전조','아직 본모습을 드러내지 않은 괴이가 나타났습니다.'], {});
+};
+
+$('#next-btn').onclick = async () => {
+    if(game.finished||busy) return;
+    $('#next-btn').disabled=true;
+    try{
+        if(game.phase===1 && game.turn>=3){ await phaseTransitionFixed(); return; }
+        game.turn++;
+        pushQ([`<div class="turn-divider record-marker">── 제 ${game.turn} 기록 ──</div>`], {});
+        pushQ(['<div class="turn-divider ally-turn-marker">── 아 군 의 턴 ──</div>'], {effect:()=>flash('flash')});
+        chooseActions(); await flushLogs();
+        
+        if(game.enemy.hp<=0){
+            await new Promise(r=>setTimeout(r,600)); // 체력 다 깎이는 시각적 효과 기다림
+            if(game.phase===1){ await phaseTransitionFixed(); } else finishFixed(true); return; 
+        }
+        if(isGameOver()){ finishFixed(false); return; }
+        
+        game.enemy.targetPriority=[]; enemyTurnFixed(); await flushLogs();
+        
+        if(isGameOver()) finishFixed(false);
+        else if(game.enemy.hp<=0){ await new Promise(r=>setTimeout(r,600)); finishFixed(true); }
+        else $('#battle-note').textContent=`기록 ${game.turn} · 다음 기록을 눌러 진행`;
+    }catch(err){ console.error(err); alert('진행 중 오류가 발생했습니다.'); }
+    finally{ if(!game.finished && !busy) $('#next-btn').disabled=false; }
+};
+
+// JSON 내보내기/불러오기
+$('#export-btn').onclick=()=>{
+    const data={characters:game.characters, relationships:game.relationships};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='괴이기록_명부.json'; a.click(); URL.revokeObjectURL(a.href);
+};
+$('#import-btn').onclick=()=>$('#import-file').click();
+$('#import-file').onchange=e=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+        try{ const data=JSON.parse(reader.result); game.characters=data.characters; game.relationships=data.relationships||{}; renderList(); renderMap(); alert('불러왔습니다.'); }
+        catch{ alert('올바른 파일이 아닙니다.'); }
+    }; reader.readAsText(e.target.files[0]); e.target.value='';
+};
+</script>
+</body></html>
